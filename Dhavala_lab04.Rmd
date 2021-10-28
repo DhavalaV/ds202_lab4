@@ -1,0 +1,77 @@
+---
+title: "Dhavala_lab04"
+author: "VIbhu Dhavala"
+date: "10/27/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readxl)
+defense <- read_excel('cyclonesFootball2020.xlsx', sheet='Defensive')
+offense <- read_excel('cyclonesFootball2020.xlsx', sheet='Offensive')
+bio <- read_excel('cyclonesFootball2020.xlsx', sheet='Biography')
+```
+```{r}
+defense$Name <- as.factor(defense$Name)
+defense$Opponent_Opponent <- as.factor(defense$Opponent_Opponent)
+offense$Name <- as.factor(offense$Name)
+offense$Opponent_Opponent <- as.factor(offense$Opponent_Opponent)
+bio$Name <- as.factor(bio$Name)
+defense <- defense %>% mutate(across(Tackles_Solo:Pass_PB, as.numeric))
+offense <- offense %>% mutate(across(Receiving_REC:Passing_INT, as.numeric))
+bio <- bio %>% mutate(Weight = as.numeric(Weight))
+bio <- bio %>%mutate(Height = 
+sapply(strsplit(bio$Height, split ="-"), 
+       function(x){12*as.numeric(x[1]) + as.numeric(x[2])}))
+bio <- bio %>% rename(HeightInches = Height)
+defense <- defense %>% group_by(Name, Opponent_Opponent) %>% mutate(
+  GameNumber = row_number()
+)
+offense <- offense %>% group_by(Name, Opponent_Opponent) %>% mutate(
+  GameNumber = row_number()
+)
+```
+```{r}
+defClean <- defense
+offClean <- offense
+bioClean <- bio
+str(defClean)
+str(offClean)
+str(bioClean)
+```
+```{r}
+offCleanLong <- offClean %>% pivot_longer(Receiving_REC:Passing_INT, names_to = "Stat", values_to = "Vals")
+playerLevel <- offCleanLong %>% group_by(Name, Stat) %>% summarise(total = sum(Vals))
+playerLevel <- na.omit(playerLevel)
+playerLevel
+ggplot(playerLevel, aes(x = Stat, y= total))+
+  geom_boxplot()+
+  coord_cartesian(ylim = c(0, 500))
+```
+```{r}
+ungroup(offClean)
+okvor <- offClean%>% select(Name, Opponent_Opponent, Receiving_YDS, GameNumber)
+okvor <- okvor %>% filter((Opponent_Opponent == "Oklahoma" | Opponent_Opponent == "Oregon") & GameNumber == 1)
+okvor <- okvor %>% pivot_wider(names_from = Opponent_Opponent, values_from = Receiving_YDS)
+okvor
+ggplot(okvor, aes(x = Oklahoma, y=Oregon))+
+  geom_point()+
+  labs(x="Receiving Yards Oklahoma", y="Receiving Yards Oregon", title = "ISU Receiving yards against Oregon and Game 1 Oklahoma")+
+  coord_cartesian(xlim = c(0, 100), ylim = c(0, 100))
+```
+Looking at the graph we can see that more players gained yards against Oregon, however our best players did better against Oklahoma than they did Oregon
+```{r}
+bioClean <- bioClean %>% separate(Hometown, sep = ", ", into=c("City", "State"))
+bioClean
+bioClean %>% count(State, sort = TRUE)
+```
+We can see most players are from Iowa with the most out of state being from Florida
+```{r}
+offCleanLong <- na.omit(offCleanLong)
+offCleanLong <- offCleanLong %>% group_by(Opponent_Opponent, Stat) %>% summarise(Total = sum(Vals))
+offCleanLong
+defClean
+```
+We can see in games where the defense is able to block better Purdy is also able to make more passes, then if Purdy can make more pass attempts and the offense has a greater number of Receiving receptions allowing them more opportunities to gain receiving yards  
